@@ -1,5 +1,7 @@
 package edu.eci.arsw.math;
 
+import java.util.ArrayList;
+
 ///  <summary>
 ///  An implementation of the Bailey-Borwein-Plouffe formula for calculating hexadecimal
 ///  digits of pi.
@@ -11,7 +13,63 @@ public class PiDigits {
     private static int DigitsPerSum = 8;
     private static double Epsilon = 1e-17;
 
-    
+    public static byte[] getDigits(int start, int count, int N) {
+        if (start < 0) {
+            throw new RuntimeException("Invalid Interval");
+        }
+
+        if (count < 0) {
+            throw new RuntimeException("Invalid Interval");
+        }
+        byte[] answer = new byte[count];
+        ArrayList<PiDigitsThread> threads = new ArrayList<>();
+        createThreads(threads, start, count, N);
+        joinThreads(threads);
+        getAnswer(threads, answer);
+        return answer;
+    }
+    private static void createThreads(ArrayList<PiDigitsThread> threads, int start, int count, int N){
+        int module = count % N;
+        int range = count / N;
+        int startValue = start;
+        for (int i = 0; i < N; i++){
+            if(module >= 1){
+                range++;
+                module--;
+            }
+            threads.add(new PiDigitsThread(range, startValue));
+            startValue = range;
+            range = count / N;
+            //if (i == N - 1){
+            //    range += module;
+            //}
+        }
+        for (int i = 0; i < N; i++){
+            threads.get(i).start();
+        }
+        //return  threads;
+    }
+    private static void joinThreads(ArrayList<PiDigitsThread> threads){
+        for (PiDigitsThread thread : threads){
+            try {
+                thread.join();
+            } catch (InterruptedException e) {
+                System.out.println("...");
+            }
+        }
+    }
+    private static void getAnswer(ArrayList<PiDigitsThread> threads, byte[] answer){
+        for (int i = 0; i < threads.size(); i++){
+            byte[] threadSolv = threads.get(i).getAnswer();
+            System.out.println(i + " " + i*threadSolv.length);
+            int destPos = 0;
+            if (i != 0){
+                destPos = i*threads.get(i).getAnswer().length;;
+            }
+            System.arraycopy(threadSolv, 0, answer, i*threadSolv.length, threadSolv.length);
+
+        }
+    }
     /**
      * Returns a range of hexadecimal digits of pi.
      * @param start The starting location of the range.
