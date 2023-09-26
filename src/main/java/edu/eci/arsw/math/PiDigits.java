@@ -33,16 +33,17 @@ public class PiDigits {
         int range = count / N;
         int startValue = start;
         for (int i = 0; i < N; i++){
-            if(module >= 1){
-                range++;
-                module--;
-            }
-            threads.add(new PiDigitsThread(range, startValue));
-            startValue = range;
-            range = count / N;
-            //if (i == N - 1){
-            //    range += module;
+            //if(module >= 1){
+            //    range++;
+            //    module--;
             //}
+            if (i == N - 1){
+                range += module;
+            }
+
+            threads.add(new PiDigitsThread(range, startValue));
+            startValue += range;
+            range = count / N;
         }
         for (int i = 0; i < N; i++){
             threads.get(i).start();
@@ -59,14 +60,16 @@ public class PiDigits {
         }
     }
     private static void getAnswer(ArrayList<PiDigitsThread> threads, byte[] answer){
+        int posPast = 0;
         for (int i = 0; i < threads.size(); i++){
             byte[] threadSolv = threads.get(i).getAnswer();
-            System.out.println(i + " " + i*threadSolv.length);
+
             int destPos = 0;
             if (i != 0){
                 destPos = i*threads.get(i).getAnswer().length;;
             }
-            System.arraycopy(threadSolv, 0, answer, i*threadSolv.length, threadSolv.length);
+            System.arraycopy(threadSolv, 0, answer, posPast, threadSolv.length);
+            posPast += threadSolv.length;
 
         }
     }
