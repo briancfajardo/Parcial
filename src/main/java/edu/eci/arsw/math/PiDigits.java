@@ -1,6 +1,10 @@
 package edu.eci.arsw.math;
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 
 ///  <summary>
 ///  An implementation of the Bailey-Borwein-Plouffe formula for calculating hexadecimal
@@ -21,34 +25,75 @@ public class PiDigits {
         if (count < 0) {
             throw new RuntimeException("Invalid Interval");
         }
+        AtomicInteger counter = new AtomicInteger(0);
+        Object lock = new Object();
         byte[] answer = new byte[count];
         ArrayList<PiDigitsThread> threads = new ArrayList<>();
-        createThreads(threads, start, count, N);
-        joinThreads(threads);
+        createThreads(threads, start, count, N, lock, counter);
+        //joinThreads(threads);
+        try {
+            waitThreads(threads, lock, counter);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
         getAnswer(threads, answer);
         return answer;
+
     }
-    private static void createThreads(ArrayList<PiDigitsThread> threads, int start, int count, int N){
+    private static void createThreads(ArrayList<PiDigitsThread> threads, int start, int count, int N, Object lock, AtomicInteger counter){
         int module = count % N;
         int range = count / N;
         int startValue = start;
         for (int i = 0; i < N; i++){
-            //if(module >= 1){
-            //    range++;
-            //    module--;
-            //}
+
             if (i == N - 1){
                 range += module;
             }
 
-            threads.add(new PiDigitsThread(range, startValue));
+            threads.add(new PiDigitsThread(range, startValue, lock, counter));
             startValue += range;
-            range = count / N;
+            //range = count / N;
         }
         for (int i = 0; i < N; i++){
             threads.get(i).start();
         }
         //return  threads;
+    }
+    private static void waitThreads(ArrayList<PiDigitsThread> threads, Object lock, AtomicInteger counter) throws InterruptedException, IOException {
+        long startTime = System.currentTimeMillis();
+        long elapsedTime;
+
+        while(true){
+            elapsedTime = System.currentTimeMillis() - startTime;
+
+            if (elapsedTime >= 5000) {
+
+                System.out.println("Cantidad de dígitos calculados: " + counter.get());
+                System.out.println("Presiona Enter para continuar");
+
+                new BufferedReader(new InputStreamReader(System.in)).readLine();
+
+                System.out.println("Continuando...");
+
+                synchronized (lock){
+                    lock.notifyAll();
+                }
+                startTime = System.currentTimeMillis();
+            }
+
+            boolean allThreadsFinished = true;
+            for (PiDigitsThread thread : threads) {
+                if (thread.isAlive()) {
+                    allThreadsFinished = false;
+                    break;
+                }
+            }
+
+            if (allThreadsFinished) {
+                break; // All threads have finished, exit loop
+            }
+        }
+
     }
     private static void joinThreads(ArrayList<PiDigitsThread> threads){
         for (PiDigitsThread thread : threads){
@@ -64,10 +109,6 @@ public class PiDigits {
         for (int i = 0; i < threads.size(); i++){
             byte[] threadSolv = threads.get(i).getAnswer();
 
-            int destPos = 0;
-            if (i != 0){
-                destPos = i*threads.get(i).getAnswer().length;;
-            }
             System.arraycopy(threadSolv, 0, answer, posPast, threadSolv.length);
             posPast += threadSolv.length;
 

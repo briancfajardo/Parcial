@@ -1,15 +1,21 @@
 package edu.eci.arsw.math;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 public class PiDigitsThread extends Thread{
 
     private static int DigitsPerSum = 8;
     private static double Epsilon = 1e-17;
     private int count;
     private int start;
+    private Object lock;
+    private AtomicInteger counter;
     private byte[] answer;
-    public PiDigitsThread (int count, int start){
+    public PiDigitsThread (int count, int start, Object lock, AtomicInteger counter){
         this.count = count;
         this.start = start;
+        this.lock = lock;
+        this.counter = counter;
     }
 
     public byte[] getAnswer() {
@@ -20,10 +26,22 @@ public class PiDigitsThread extends Thread{
         answer = calculate(count, start);
 
     }
+    public void pauseThread(){
+        synchronized (lock){
+            try {
+                lock.wait();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
     private byte[] calculate(int count, int start){
         byte[] digits = new byte[count];
 
         double sum = 0;
+
+        long startTime = System.currentTimeMillis();
+        long elapsedTime;
 
         for (int i = 0; i < count; i++) {
             if (i % DigitsPerSum == 0) {
@@ -37,6 +55,15 @@ public class PiDigitsThread extends Thread{
 
             sum = 16 * (sum - Math.floor(sum));
             digits[i] = (byte) sum;
+
+            elapsedTime = System.currentTimeMillis() - startTime;
+            if (elapsedTime >= 5000) {
+                pauseThread();
+                startTime = System.currentTimeMillis();
+            }
+            synchronized (lock){
+                counter.incrementAndGet();
+            }
         }
         return digits;
     }
